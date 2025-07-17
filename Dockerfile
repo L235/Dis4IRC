@@ -15,20 +15,19 @@ FROM eclipse-temurin:21-jre-alpine
 # Install base64 tool to decode our config
 RUN apk add --no-cache coreutils
 
-# Create data directory where config will live
-RUN mkdir -p /data
-WORKDIR /data
+# App directory (also holds runtime config)
+WORKDIR /opt/dis4irc
 
 # Copy the built JAR from the build stage
-COPY --from=build /app/build/libs/Dis4IRC-*.jar /opt/dis4irc/app.jar
+COPY --from=build /app/build/libs/Dis4IRC-*.jar ./app.jar
 
 # Java options
 ENV JAVA_OPTS="-Xmx256m -XX:+UseSerialGC"
 
 # On container start:
-# 1) decode CONFIG_B64 → /data/config.hocon
-# 2) run Dis4IRC with that config
+# 1) decode CONFIG_B64 → ./config.hocon
+# 2) run Dis4IRC with that config (app expected to read ./config.hocon)
 ENTRYPOINT ["sh","-c", "\
-  echo \"$CONFIG_B64\" | base64 -d > /data/config.hocon && \
-  exec java $JAVA_OPTS -jar /opt/dis4irc/app.jar \
+  echo \"$CONFIG_B64\" | base64 -d > config.hocon && \
+  exec java $JAVA_OPTS -jar ./app.jar \
 "]
