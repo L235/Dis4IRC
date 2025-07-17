@@ -23,7 +23,7 @@ WORKDIR /data
 COPY --from=build /app/build/libs/Dis4IRC-*.jar /opt/dis4irc/app.jar
 
 # Java options
-ENV JAVA_OPTS="-Xmx512m"
+ENV JAVA_OPTS="-Xmx256m -XX:+UseSerialGC"
 
 # On container start:
 # 1) decode CONFIG_B64 → /data/config.hocon
