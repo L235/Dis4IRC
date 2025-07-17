@@ -11,16 +11,22 @@ package io.zachbr.dis4irc.bridge
 import io.zachbr.dis4irc.Dis4IRC
 import io.zachbr.dis4irc.bridge.command.COMMAND_PREFIX
 import io.zachbr.dis4irc.bridge.command.CommandManager
-import io.zachbr.dis4irc.bridge.message.Message
+import io.zachbr.dis4irc.bridge.message.BridgeMessage
+import io.zachbr.dis4irc.bridge.message.CommandMessage
+import io.zachbr.dis4irc.bridge.message.DiscordMessage
+import io.zachbr.dis4irc.bridge.message.DiscordSource
+import io.zachbr.dis4irc.bridge.message.IrcMessage
+import io.zachbr.dis4irc.bridge.message.IrcSource
 import io.zachbr.dis4irc.bridge.message.PlatformType
 import io.zachbr.dis4irc.bridge.mutator.MutatorManager
 import io.zachbr.dis4irc.bridge.pier.discord.DiscordPier
 import io.zachbr.dis4irc.bridge.pier.irc.IrcPier
 import org.json.JSONObject
 import org.slf4j.LoggerFactory
+import java.time.Instant
 
 /**
- * Responsible for the connection between Discord and IRC, including message processing hand offs
+ * Responsible for the connection between Discord and IRC, including message processing hand-offs
  */
 class Bridge(private val main: Dis4IRC, internal val config: BridgeConfiguration) {
     internal val logger = LoggerFactory.getLogger(config.bridgeName) ?: throw IllegalStateException("Could not init logger")
@@ -55,29 +61,51 @@ class Bridge(private val main: Dis4IRC, internal val config: BridgeConfiguration
     /**
      * Bridges communication between the two piers
      */
-    internal fun submitMessage(messageIn: Message) {
-        val bridgeTarget: String? = channelMappings.getMappingFor(messageIn.source)
-
-        if (bridgeTarget == null) {
-            logger.debug("Discarding message with no bridge target from: {}", messageIn.source)
+    internal fun submitMessage(bMessage: BridgeMessage) {
+        // don't process a message that has no destination
+        val bridgeTarget = channelMappings.getMappingFor(bMessage.message.source) ?: run {
+            logger.debug("Discarding message with no bridge target from: {}", bMessage.message.source)
             return
         }
 
-        // mutate message contents
-        val mutatedMessage = mutatorManager.applyMutators(messageIn) ?: return
+        val mutatedMessage = mutatorManager.applyMutators(bMessage) ?: return
+        val mutatedPlatformMsg = mutatedMessage.message
+
+        // we only send across the bridge (to the relevant mapping) or back to the same source currently
+        val ircSendTarget: String
+        val discordSendTarget: String
+        when (mutatedPlatformMsg) {
+            is IrcMessage -> {
+                ircSendTarget = mutatedPlatformMsg.source.channelName
+                discordSendTarget = bridgeTarget
+            }
+            is DiscordMessage -> {
+                ircSendTarget = bridgeTarget
+                discordSendTarget = mutatedPlatformMsg.source.channelId.toString()
+            }
+            is CommandMessage -> {
+                when (mutatedPlatformMsg.source) {
+                    is IrcSource -> {
+                        ircSendTarget = mutatedPlatformMsg.source.channelName
+                        discordSendTarget = bridgeTarget
+                    }
+                    is DiscordSource -> {
+                        ircSendTarget = bridgeTarget
+                        discordSendTarget = mutatedPlatformMsg.source.channelId.toString()
+                    }
+                }
+            }
+        }
 
         if (mutatedMessage.shouldSendTo(PlatformType.IRC)) {
-            val target: String = if (mutatedMessage.source.type == PlatformType.IRC) mutatedMessage.source.channelName else bridgeTarget
-            ircConn.sendMessage(target, mutatedMessage)
+            ircConn.sendMessage(ircSendTarget, mutatedMessage)
         }
 
         if (mutatedMessage.shouldSendTo(PlatformType.DISCORD)) {
-            val target = if (mutatedMessage.source.type == PlatformType.DISCORD) mutatedMessage.source.discordId.toString() else bridgeTarget
-            discordConn.sendMessage(target, mutatedMessage)
+            discordConn.sendMessage(discordSendTarget, mutatedMessage)
         }
 
-        // command handling
-        if (mutatedMessage.contents.startsWith(COMMAND_PREFIX) && !mutatedMessage.originatesFromBridgeItself()) {
+        if (mutatedMessage.message.contents.startsWith(COMMAND_PREFIX) && !mutatedMessage.originatesFromBridgeItself()) {
             commandManager.processCommandMessage(mutatedMessage)
         }
     }
@@ -109,7 +137,7 @@ class Bridge(private val main: Dis4IRC, internal val config: BridgeConfiguration
     /**
      * Adds a message's handling time to the bridge's collection for monitoring purposes
      */
-    fun updateStatistics(message: Message, timestampOut: Long) {
-        statsManager.processMessage(message, timestampOut)
+    fun updateStatistics(message: BridgeMessage, sendInstant: Instant) {
+        statsManager.processMessage(message, sendInstant)
     }
 }

@@ -11,6 +11,7 @@ package io.zachbr.dis4irc.bridge.pier.discord
 import net.dv8tion.jda.api.entities.channel.ChannelType
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
+import java.time.Instant
 
 /**
  * Responsible for listening to incoming discord messages and filtering garbage
@@ -25,7 +26,7 @@ class DiscordMsgListener(private val pier: DiscordPier) : ListenerAdapter() {
         }
 
         // don't bridge itself
-        val source = event.channel.asTextChannel().asBridgeSource() // if we bridge DMs in the future, this needs to change
+        val source = event.channel.asTextChannel().asPlatformSource() // if we bridge DMs in the future, this needs to change
         if (pier.isThisBot(source, event.author.idLong)) {
             return
         }
@@ -40,9 +41,8 @@ class DiscordMsgListener(private val pier: DiscordPier) : ListenerAdapter() {
             return
         }
 
-        val receiveTimestamp = System.nanoTime()
+        val receiveInstant = Instant.now()
         logger.debug("DISCORD MSG ${event.channel.name} ${event.author.name}: ${event.message.contentStripped}")
-
-        pier.sendToBridge(message.toBridgeMsg(logger, receiveTimestamp))
+        pier.sendToBridge(message.toPlatformMessage(logger, receiveInstant))
     }
 }

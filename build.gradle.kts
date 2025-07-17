@@ -1,17 +1,20 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import java.io.ByteArrayOutputStream
 import org.gradle.api.JavaVersion
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "2.1.20"
+    // Kotlin 2.1.20 causes build failures on riscv64 and other archs
+    // see GH-86.
+    kotlin("jvm") version "2.1.10"
 
     id("org.cadixdev.licenser") version "0.6.1"
     id("com.gradleup.shadow") version "8.3.5"
 }
 
 group = "io.zachbr"
-version = "1.6.5-SNAPSHOT"
+version = "1.7.0-SNAPSHOT"
 
 val targetJVM = JavaVersion.VERSION_11.toString()
 
@@ -24,8 +27,9 @@ repositories {
 dependencies {
     implementation("org.kitteh.irc:client-lib:9.0.0")
     implementation("club.minnced:discord-webhooks:0.8.4")
-    implementation("net.dv8tion:JDA:5.5.1") {
+    implementation("net.dv8tion:JDA:5.6.1") {
         exclude(module = "opus-java")
+        exclude(module = "tink")
     }
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
@@ -66,8 +70,8 @@ tasks {
     }
 
     withType<KotlinCompile> {
-        kotlinOptions {
-            jvmTarget = targetJVM
+        compilerOptions {
+            jvmTarget.set(JvmTarget.fromTarget(targetJVM))
         }
     }
 
