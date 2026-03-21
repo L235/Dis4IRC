@@ -22,7 +22,7 @@ WORKDIR /opt/dis4irc
 COPY --from=build /app/build/libs/Dis4IRC-*.jar ./app.jar
 
 # Java options
-ENV JAVA_OPTS="-Xmx256m -XX:+UseSerialGC"
+ENV JAVA_OPTS="-Xmx256m -XX:+UseSerialGC -Djava.net.preferIPv4Stack=true"
 
 # On container start:
 # 1) decode CONFIG_B64 → ./config.hocon
