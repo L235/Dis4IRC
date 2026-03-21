@@ -10,10 +10,10 @@ package io.zachbr.dis4irc.bridge.pier.irc
 
 import io.zachbr.dis4irc.bridge.BridgeConfiguration
 import io.zachbr.dis4irc.bridge.IrcConfiguration
-import io.zachbr.dis4irc.bridge.message.BridgeMessage
 import io.zachbr.dis4irc.bridge.message.BridgeSender
 import io.zachbr.dis4irc.bridge.message.DiscordContentBase
 import io.zachbr.dis4irc.bridge.message.DiscordMessage
+import io.zachbr.dis4irc.bridge.message.PlatformMessage
 import io.zachbr.dis4irc.bridge.message.PlatformSender
 import org.kitteh.irc.client.library.util.Format
 import kotlin.math.abs
@@ -21,13 +21,12 @@ import kotlin.math.abs
 object IrcMessageFormatter {
     const val ANTI_PING_CHAR = 0x200B.toChar() // zero width space
     private val NICK_COLORS = arrayOf("10", "06", "03", "07", "12", "11", "13", "09", "02")
+    private val SAFE_TRIM_CHARS: (Char) -> Boolean = { it == ' ' || it == '\t' || it == '\n' || it == '\r' }
 
     /**
      * Takes a bridge message and returns a list of lines for sending to IRC.
      */
-    fun format(bridgeMessage: BridgeMessage, config: BridgeConfiguration): List<String> {
-        val platMessage = bridgeMessage.message
-
+    fun format(platMessage: PlatformMessage, config: BridgeConfiguration): List<String> {
         // Only really need to format messages from Discord (currently?)
         // Other messages we can just hand back as provided.
         if (platMessage !is DiscordMessage) {
@@ -119,7 +118,7 @@ object IrcMessageFormatter {
         // forwards currently only contain one message
         val snapshot = msg.snapshots.first()
         val formattedContent = formatContentBlock(snapshot, config)
-        lines.addAll(formattedContent.trim().split("\n"))
+        lines.addAll(formattedContent.trim(SAFE_TRIM_CHARS).split("\n"))
 
         return lines
     }
@@ -130,7 +129,7 @@ object IrcMessageFormatter {
     private fun formatStandardMessage(msg: DiscordMessage, config: IrcConfiguration): List<String> {
         val content = formatContentBlock(msg, config)
 
-        return content.trim().split("\n").map { line ->
+        return content.trim(SAFE_TRIM_CHARS).split("\n").map { line ->
             val noPrefixPattern = config.noPrefixRegex
             if (noPrefixPattern == null || !noPrefixPattern.matcher(line).find()) {
                 val messagePrefix = createSenderPrefix(msg.sender, config.antiPing, config.useNickNameColor)

@@ -1,20 +1,17 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import java.io.ByteArrayOutputStream
 import org.gradle.api.JavaVersion
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    // Kotlin 2.1.20 causes build failures on riscv64 and other archs
-    // see GH-86.
-    kotlin("jvm") version "2.1.10"
+    kotlin("jvm") version "2.3.0"
 
-    id("org.cadixdev.licenser") version "0.6.1"
-    id("com.gradleup.shadow") version "8.3.5"
+    id("net.neoforged.licenser") version "0.7.5"
+    id("com.gradleup.shadow") version "9.3.1"
 }
 
 group = "io.zachbr"
-version = "1.7.0-SNAPSHOT"
+version = "1.7.3-SNAPSHOT"
 
 val targetJVM = JavaVersion.VERSION_11.toString()
 
@@ -27,22 +24,22 @@ repositories {
 dependencies {
     implementation("org.kitteh.irc:client-lib:9.0.0")
     implementation("club.minnced:discord-webhooks:0.8.4")
-    implementation("net.dv8tion:JDA:5.6.1") {
+    implementation("net.dv8tion:JDA:6.3.0") {
         exclude(module = "opus-java")
         exclude(module = "tink")
     }
 
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("org.json:json:20250107")
+    implementation("org.json:json:20251224")
     implementation("org.spongepowered:configurate-hocon:4.2.0")
-    implementation("org.commonmark:commonmark:0.24.0")
-    implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.24.0")
+    implementation("org.commonmark:commonmark:0.27.1")
+    implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.27.1")
 
     implementation("org.slf4j:slf4j-api:2.0.17")
-    implementation("ch.qos.logback:logback-core:1.5.18")
-    implementation("ch.qos.logback:logback-classic:1.5.18")
+    implementation("ch.qos.logback:logback-core:1.5.28")
+    implementation("ch.qos.logback:logback-classic:1.5.28")
 
-    testImplementation(platform("org.junit:junit-bom:5.12.2"))
+    testImplementation(platform("org.junit:junit-bom:5.14.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -80,7 +77,7 @@ tasks {
         expand(
             "projectName" to rootProject.name,
             "projectVersion" to version,
-            "projectSuffix" to getSuffix(),
+            "projectSuffix" to project.getSuffix(),
             "projectSourceRepo" to "https://github.com/zachbr/Dis4IRC"
         )
     }
@@ -99,21 +96,23 @@ license {
     }
 }
 
-fun getSuffix(): String {
+fun Project.getSuffix(): String {
     // If suffix was specified at build-time, use that.
     // ./gradlew build -P suffix="suffixValue15"
-    project.findProperty("suffix")?.toString()?.let { return it }
+    findProperty("suffix")?.toString()?.let { return it }
 
     // Fall back to git hash if suffix not set
-    return ByteArrayOutputStream().let { stdout ->
-        runCatching {
-            exec {
-                commandLine("git", "rev-parse", "--short", "HEAD")
-                standardOutput = stdout
-                errorOutput = ByteArrayOutputStream()
-                isIgnoreExitValue = true
-            }
-            stdout.toString().trim().takeIf { it.isNotEmpty() }
-        }.getOrNull() ?: "0"  // fall back to 0 if git falls through
-    }
+    return runCatching {
+        val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+            .directory(this.rootDir)
+            .redirectOutput(ProcessBuilder.Redirect.PIPE)
+            .start()
+        process.waitFor(3, TimeUnit.SECONDS)
+
+        val gitHash = process.inputStream.bufferedReader().readText().trim()
+        if (process.exitValue() != 0 || gitHash.isEmpty()) {
+            throw Exception("Git command failed or returned empty output.")
+        }
+        return gitHash
+    }.getOrDefault("0") // fall back to 0 if git falls through
 }
