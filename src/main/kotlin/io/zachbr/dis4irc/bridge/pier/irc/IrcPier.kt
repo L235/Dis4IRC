@@ -16,6 +16,7 @@ import io.zachbr.dis4irc.bridge.pier.Pier
 import org.kitteh.irc.client.library.Client
 import org.kitteh.irc.client.library.Client.Builder.Server.SecurityType
 import org.kitteh.irc.client.library.element.Channel
+import org.kitteh.irc.client.library.feature.auth.SaslPlain
 import org.slf4j.Logger
 import java.time.Instant
 import java.util.regex.Pattern
@@ -45,9 +46,20 @@ class IrcPier(private val bridge: Bridge) : Pier {
             builder.secureTrustManagerFactory(InsecureTrustManagerFactory.INSTANCE)
         }
 
-        // connect
-        ircConn = builder.then().buildAndConnect()
+        // build client (don't connect yet — need to configure SASL first if applicable)
+        ircConn = builder.then().build()
         ircConn.client.exceptionListener.setConsumer { bridge.logger.warn("Exception from IRC API:", it)}
+
+        // configure SASL authentication if credentials are provided
+        val saslAccount = bridge.config.irc.saslAccount
+        val saslPassword = bridge.config.irc.saslPassword
+        if (saslAccount != null && saslPassword != null) {
+            logger.info("Configuring SASL PLAIN authentication for account: $saslAccount")
+            ircConn.authManager.addProtocol(SaslPlain(ircConn, saslAccount, saslPassword))
+        }
+
+        // now connect
+        ircConn.connect()
 
         // listeners
         ircConn.eventManager.registerEventListener(IrcConnectionListener(this))

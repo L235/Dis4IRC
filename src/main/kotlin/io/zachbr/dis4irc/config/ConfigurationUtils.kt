@@ -168,6 +168,10 @@ fun CommentedConfigurationNode.toBridgeConfiguration(): BridgeConfiguration {
         ircSendDiscordEmbedsNode.set(true)
     }
     val ircSendDiscordEmbeds = ircSendDiscordEmbedsNode.boolean
+
+    val ircSaslAccount = this.node("irc", "sasl-account").string // nullable
+    val ircSaslPassword = this.node("irc", "sasl-password").string // nullable
+
     val discordApiKey = getStringNonNull("Discord API key cannot be null in $bridgeName!", "discord-api-key")
     val announceJoinsQuits = this.node("announce-joins-and-quits").boolean
     val announceExtras = this.node("announce-extras").boolean
@@ -262,7 +266,7 @@ fun CommentedConfigurationNode.toBridgeConfiguration(): BridgeConfiguration {
     val discordConfig = DiscordConfiguration(discordApiKey, webhookMappings, discordActivityType, discordActivityDesc, discordActivityUrl, discordOnlineStatus, discordSuppressUrlPreviews)
     val ircConfig = IrcConfiguration(ircHost, ircPass, ircPort, ircUseSsl, ircAllowBadSsl, ircNickName, ircUserName,
         ircRealName, ircAntiPing, ircUseNickNameColor, ircNoPrefixPattern, ircAnnounceForwards, ircDiscordReplyContextLimit,
-        ircCommandsList, ircSendDiscordEmbeds)
+        ircCommandsList, ircSendDiscordEmbeds, ircSaslAccount, ircSaslPassword)
 
     return BridgeConfiguration(
         bridgeName,

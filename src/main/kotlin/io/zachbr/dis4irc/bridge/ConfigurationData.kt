@@ -52,7 +52,9 @@ data class IrcConfiguration (
     val announceForwardedCommands: Boolean,
     val discordReplyContextLimit: Int,
     val startupRawCommands: List<String>,
-    val sendDiscordEmbeds: Boolean
+    val sendDiscordEmbeds: Boolean,
+    val saslAccount: String?,
+    val saslPassword: String?
 ) {
     fun toLoggable(): String {
         return "IrcConfiguration(" +
